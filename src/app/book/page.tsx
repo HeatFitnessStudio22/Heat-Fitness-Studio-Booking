@@ -1,0 +1,198 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { DAY_LABELS_EL, formatDateStr } from "@/lib/slots";
+
+type Slot = { hour: number; label: string; remaining: number };
+
+function buildNextDays(count: number) {
+  const days: Date[] = [];
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  while (days.length < count) {
+    if (d.getDay() !== 0) days.push(new Date(d)); // skip Sunday - closed
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+export default function BookPage() {
+  const { data: session } = useSession();
+  const days = useMemo(() => buildNextDays(14), []);
+  const [selectedDate, setSelectedDate] = useState(days[0]);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const dateStr = formatDateStr(selectedDate);
+
+  useEffect(() => {
+    setLoadingSlots(true);
+    fetch(`/api/slots?date=${dateStr}`)
+      .then((r) => r.json())
+      .then((data) => setSlots(data.slots || []))
+      .finally(() => setLoadingSlots(false));
+  }, [dateStr]);
+
+  async function confirmBooking() {
+    if (!selectedSlot) return;
+    setSubmitting(true);
+    setMessage(null);
+    const res = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: dateStr, hour: selectedSlot.hour }),
+    });
+    const data = await res.json();
+    setSubmitting(false);
+    if (!res.ok) {
+      setMessage(data.error || "Κάτι πήγε στραβά.");
+      return;
+    }
+    setSelectedSlot(null);
+    setMessage("Το ραντεβού σας κλείστηκε!");
+    fetch(`/api/slots?date=${dateStr}`)
+      .then((r) => r.json())
+      .then((data) => setSlots(data.slots || []));
+  }
+
+  return (
+    <main className="min-h-screen pb-16">
+      <div className="flex justify-end px-4 pt-4">
+        <button onClick={() => signOut({ callbackUrl: "/login" })} className="text-xs text-gray-400 underline">
+          Αποσύνδεση ({session?.user?.name})
+        </button>
+      </div>
+
+      <div className="flex flex-col items-center px-4">
+        <img src="/heat-logo.png" alt="HEAT The Fitness Studio" className="w-56 mb-6" />
+        <h1 className="tracking-[0.3em] text-gray-300 text-sm uppercase mb-3">
+          Κρατηση Ραντεβου
+        </h1>
+        <p className="text-gray-400 text-sm text-center mb-6">
+          Δεληγιώργη 119-121, Πειραιάς 18534 · +30 6988251973
+        </p>
+      </div>
+
+      <hr className="border-gray-800 mb-6" />
+
+      <div className="px-4">
+        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">Επιλεξε Ημερα</h2>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {days.map((d) => {
+            const isSelected = formatDateStr(d) === dateStr;
+            return (
+              <button
+                key={formatDateStr(d)}
+                onClick={() => {
+                  setSelectedDate(d);
+                  setSelectedSlot(null);
+                  setMessage(null);
+                }}
+                className={`shrink-0 rounded-xl border px-5 py-3 text-center ${
+                  isSelected ? "neon-border" : "border-gray-700"
+                }`}
+              >
+                <div className={`text-xs uppercase ${isSelected ? "neon-text" : "text-gray-400"}`}>
+                  {DAY_LABELS_EL[d.getDay()]}
+                </div>
+                <div className={`text-lg font-bold ${isSelected ? "text-white" : "text-gray-300"}`}>
+                  {d.getDate()}/{d.getMonth() + 1}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="px-4 mt-8">
+        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">Διαθεσιμεσ Ωρεσ</h2>
+
+        {loadingSlots && <p className="text-gray-500 text-sm">Φόρτωση...</p>}
+        {!loadingSlots && slots.length === 0 && (
+          <p className="text-gray-500 text-sm">Κλειστά αυτή την ημέρα.</p>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          {slots.map((s) => {
+            const full = s.remaining <= 0;
+            return (
+              <button
+                key={s.hour}
+                disabled={full}
+                onClick={() => setSelectedSlot(s)}
+                className={`rounded-xl border px-4 py-5 text-left ${
+                  full ? "border-gray-800 opacity-40" : "border-gray-700 hover:neon-border"
+                }`}
+              >
+                <div className="text-2xl font-bold text-white">{s.label}</div>
+                <div className="text-sm text-gray-400 mt-1">
+                  {full ? "Γεμάτο" : `${s.remaining} θέσεις`}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {message && (
+        <div className="fixed bottom-4 left-4 right-4 rounded-lg bg-heatBlack2 border neon-border px-4 py-3 text-center">
+          {message}
+        </div>
+      )}
+
+      {selectedSlot && (
+        <div className="fixed inset-0 bg-black/70 flex items-end z-50">
+          <div className="w-full rounded-t-2xl bg-heatBlack2 border-t neon-border px-6 py-8">
+            <div className="text-3xl font-bold neon-text mb-1">{selectedSlot.label}</div>
+            <div className="text-gray-300 mb-6">
+              {new Intl.DateTimeFormat("el-GR", { weekday: "long", day: "numeric", month: "numeric", year: "numeric" }).format(
+                selectedDate
+              )}
+            </div>
+
+            <div className="mb-4">
+              <div className="text-xs text-gray-400 mb-1">Όνομα</div>
+              <div className="rounded-lg bg-black border border-gray-700 px-4 py-3">
+                {session?.user?.name}
+              </div>
+            </div>
+            <div className="mb-6">
+              <div className="text-xs text-gray-400 mb-1">Email</div>
+              <div className="rounded-lg bg-black border border-gray-700 px-4 py-3">
+                {session?.user?.email}
+              </div>
+            </div>
+
+            <div className="rounded-lg border neon-border px-4 py-3 text-sm text-gray-200 mb-6">
+              Ακύρωση δέχεται μέχρι 1 μέρα πριν το ραντεβού. Μετά από αυτό το όριο, το ραντεβού χρεώνεται
+              κανονικά.
+            </div>
+
+            {message && <p className="text-red-400 text-sm mb-3">{message}</p>}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSelectedSlot(null)}
+                className="flex-1 rounded-lg border border-gray-600 py-3 text-gray-300"
+              >
+                Άκυρο
+              </button>
+              <button
+                onClick={confirmBooking}
+                disabled={submitting}
+                className="flex-1 btn-neon rounded-lg py-3 disabled:opacity-60"
+              >
+                {submitting ? "..." : "Κλείσε ραντεβού"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+

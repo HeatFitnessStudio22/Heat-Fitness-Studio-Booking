@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #0a0a0a;
+  color: #fff;
+}
+
+.neon-text {
+  color: #E4FF1A;
+  text-shadow: 0 0 4px rgba(228, 255, 26, 0.35);
+}
+
+.neon-border {
+  border-color: #E4FF1A;
+  box-shadow: 0 0 6px rgba(228, 255, 26, 0.4), 0 0 14px rgba(228, 255, 26, 0.2);
+}
+
+.btn-neon {
+  background-color: #E4FF1A;
+  color: #0a0a0a;
+  font-weight: 700;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+.btn-neon:hover {
+  box-shadow: 0 0 8px rgba(228, 255, 26, 0.5);
+}
+.btn-neon:active {
+  transform: scale(0.98);
+}
+

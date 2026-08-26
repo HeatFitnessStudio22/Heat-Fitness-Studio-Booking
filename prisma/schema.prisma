@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  fullName     String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(CUSTOMER)
+  // Monthly booking limit set by the gym admin for this email.
+  // null = no limit enforced.
+  monthlyLimit Int?
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+}
+
+model Booking {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Exact start of the 1-hour slot (stored in UTC).
+  startsAt  DateTime
+  status    BookingStatus @default(CONFIRMED)
+  // Was the user already over their monthly limit when this booking was made?
+  overLimit Boolean       @default(false)
+  createdAt DateTime      @default(now())
+
+  @@index([startsAt])
+  @@index([userId])
+}
+
