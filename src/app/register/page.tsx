@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLang, t } from "@/lib/i18n";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [lang, setLang] = useLang();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +26,7 @@ export default function RegisterPage() {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) {
-      setError(data.error || "Κάτι πήγε στραβά.");
+      setError(data.error || t("somethingWrong", lang));
       return;
     }
     router.push("/login");
@@ -32,34 +34,42 @@ export default function RegisterPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6">
-      <img src="/heat-logo.png" alt="HEAT The Fitness Studio" className="w-40 mb-8" />
+      <div className="w-full max-w-sm flex justify-end mb-2">
+        <button
+          onClick={() => setLang(lang === "el" ? "en" : "el")}
+          className="text-xs text-gray-400 border border-gray-700 rounded-md px-2 py-1"
+        >
+          {lang === "el" ? "EN" : "ΕΛ"}
+        </button>
+      </div>
+      <img src="/heat-logo.png" alt="HEAT The Fitness Studio" className="w-56 mb-8" />
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
         <h1 className="text-center text-sm tracking-widest text-gray-400 uppercase mb-2">
-          Εγγραφή
+          {t("register", lang)}
         </h1>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Όνομα</label>
+          <label className="block text-xs text-gray-400 mb-1">{t("fullName", lang)}</label>
           <input
             required
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             className="w-full rounded-lg bg-heatBlack2 border border-gray-700 px-4 py-3 text-white outline-none focus:neon-border"
-            placeholder="π.χ. Γιώργος Παπαδόπουλος"
+            placeholder={t("namePlaceholder", lang)}
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Email</label>
+          <label className="block text-xs text-gray-400 mb-1">{t("email", lang)}</label>
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-lg bg-heatBlack2 border border-gray-700 px-4 py-3 text-white outline-none focus:neon-border"
-            placeholder="π.χ. giorgos@example.com"
+            placeholder={t("emailPlaceholder", lang)}
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Κωδικός</label>
+          <label className="block text-xs text-gray-400 mb-1">{t("password", lang)}</label>
           <input
             type="password"
             required
@@ -75,12 +85,12 @@ export default function RegisterPage() {
           disabled={loading}
           className="btn-neon w-full rounded-lg py-3 disabled:opacity-60"
         >
-          {loading ? "..." : "Εγγραφή"}
+          {loading ? "..." : t("register", lang)}
         </button>
         <p className="text-center text-sm text-gray-400">
-          Έχετε ήδη λογαριασμό;{" "}
+          {t("haveAccount", lang)}{" "}
           <Link href="/login" className="neon-text underline">
-            Σύνδεση
+            {t("login", lang)}
           </Link>
         </p>
       </form>

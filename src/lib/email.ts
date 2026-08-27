@@ -2,6 +2,32 @@ import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+// Sends a password reset link to the customer.
+export async function sendPasswordResetEmail(params: { fullName: string; email: string; resetUrl: string }) {
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || "HEAT Booking <onboarding@resend.dev>",
+    to: params.email,
+    subject: `HEAT: Επαναφορά κωδικού / Password reset`,
+    html: `
+      <div style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px">
+        <h2 style="color:#E4FF1A">Επαναφορά κωδικού</h2>
+        <p>Γεια σου <strong>${params.fullName}</strong>,</p>
+        <p>Πάτησε τον παρακάτω σύνδεσμο για να ορίσεις νέο κωδικό (ισχύει για 1 ώρα):</p>
+        <p><a href="${params.resetUrl}" style="color:#E4FF1A">${params.resetUrl}</a></p>
+        <p style="color:#999;font-size:13px">Αν δεν ζήτησες εσύ επαναφορά κωδικού, αγνόησε αυτό το email.</p>
+        <hr style="border-color:#333;margin:24px 0">
+        <h2 style="color:#E4FF1A">Password reset</h2>
+        <p>Hi <strong>${params.fullName}</strong>,</p>
+        <p>Click the link below to set a new password (valid for 1 hour):</p>
+        <p><a href="${params.resetUrl}" style="color:#E4FF1A">${params.resetUrl}</a></p>
+        <p style="color:#999;font-size:13px">If you didn't request this, you can ignore this email.</p>
+      </div>
+    `,
+  });
+}
+
 // Sends notice to a customer who just got auto-booked from the waitlist
 // because someone else cancelled.
 export async function sendWaitlistPromotedEmail(params: {

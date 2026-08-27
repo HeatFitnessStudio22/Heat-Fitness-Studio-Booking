@@ -9,12 +9,12 @@ body {
 
 .neon-text {
   color: #E4FF1A;
-  text-shadow: 0 0 4px rgba(228, 255, 26, 0.35);
+  text-shadow: 0 0 3px rgba(228, 255, 26, 0.28);
 }
 
 .neon-border {
   border-color: #E4FF1A;
-  box-shadow: 0 0 6px rgba(228, 255, 26, 0.4), 0 0 14px rgba(228, 255, 26, 0.2);
+  box-shadow: 0 0 5px rgba(228, 255, 26, 0.3), 0 0 11px rgba(228, 255, 26, 0.15);
 }
 
 .btn-neon {
@@ -24,7 +24,7 @@ body {
   transition: box-shadow 0.15s ease, transform 0.1s ease;
 }
 .btn-neon:hover {
-  box-shadow: 0 0 8px rgba(228, 255, 26, 0.5);
+  box-shadow: 0 0 6px rgba(228, 255, 26, 0.4);
 }
 .btn-neon:active {
   transform: scale(0.98);

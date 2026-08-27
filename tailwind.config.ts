@@ -10,7 +10,7 @@ const config: Config = {
         neon: "#E4FF1A",
       },
       boxShadow: {
-        neon: "0 0 6px rgba(228,255,26,0.4), 0 0 14px rgba(228,255,26,0.2)",
+        neon: "0 0 5px rgba(228,255,26,0.3), 0 0 11px rgba(228,255,26,0.15)",
       },
       fontFamily: {
         display: ["Arial", "Helvetica", "sans-serif"],

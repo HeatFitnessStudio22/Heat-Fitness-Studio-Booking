@@ -3,15 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DAY_LABELS_EL, formatDateStr } from "@/lib/slots";
+import { useLang, t, DAY_LABELS_EN } from "@/lib/i18n";
 
 type Slot = { hour: number; label: string; remaining: number; waitlisted: boolean };
 type MyBooking = { id: string; startsAt: string; status: string };
 
-function buildNextDays(count: number) {
+function buildDaysUntilYearEnd() {
   const days: Date[] = [];
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  while (days.length < count) {
+  const end = new Date(2026, 11, 31); // 31 Δεκεμβρίου 2026
+  while (d.getTime() <= end.getTime()) {
     if (d.getDay() !== 0) days.push(new Date(d)); // skip Sunday - closed
     d.setDate(d.getDate() + 1);
   }
@@ -20,7 +22,9 @@ function buildNextDays(count: number) {
 
 export default function BookPage() {
   const { data: session } = useSession();
-  const days = useMemo(() => buildNextDays(14), []);
+  const [lang, setLang] = useLang();
+  const dayLabels = lang === "el" ? DAY_LABELS_EL : DAY_LABELS_EN;
+  const days = useMemo(() => buildDaysUntilYearEnd(), []);
   const [selectedDate, setSelectedDate] = useState(days[0]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
@@ -47,7 +51,7 @@ export default function BookPage() {
     const res = await fetch(`/api/bookings/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (!res.ok) {
-      setCancelMessage(data.error || "Κάτι πήγε στραβά.");
+      setCancelMessage(data.error || t("somethingWrong", lang));
       return;
     }
     loadMyBookings();
@@ -76,11 +80,11 @@ export default function BookPage() {
     const data = await res.json();
     setSubmitting(false);
     if (!res.ok) {
-      setMessage(data.error || "Κάτι πήγε στραβά.");
+      setMessage(data.error || t("somethingWrong", lang));
       return;
     }
     setSelectedSlot(null);
-    setMessage("Το ραντεβού σας κλείστηκε!");
+    setMessage(t("bookingConfirmed", lang));
     loadMyBookings();
     fetch(`/api/slots?date=${dateStr}`)
       .then((r) => r.json())
@@ -97,7 +101,7 @@ export default function BookPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setMessage(data.error || "Κάτι πήγε στραβά.");
+      setMessage(data.error || t("somethingWrong", lang));
       return;
     }
     fetch(`/api/slots?date=${dateStr}`)
@@ -107,16 +111,22 @@ export default function BookPage() {
 
   return (
     <main className="min-h-screen pb-16">
-      <div className="flex justify-end px-4 pt-4">
+      <div className="flex justify-between px-4 pt-4">
+        <button
+          onClick={() => setLang(lang === "el" ? "en" : "el")}
+          className="text-xs text-gray-400 border border-gray-700 rounded-md px-2 py-1"
+        >
+          {lang === "el" ? "EN" : "ΕΛ"}
+        </button>
         <button onClick={() => signOut({ callbackUrl: "/login" })} className="text-xs text-gray-400 underline">
-          Αποσύνδεση ({session?.user?.name})
+          {t("signOut", lang)} ({session?.user?.name})
         </button>
       </div>
 
       <div className="flex flex-col items-center px-4">
-        <img src="/heat-logo.png" alt="HEAT The Fitness Studio" className="w-56 mb-6" />
+        <img src="/heat-logo.png" alt="HEAT The Fitness Studio" className="w-64 mb-6" />
         <h1 className="tracking-[0.3em] text-gray-300 text-sm uppercase mb-3">
-          Κρατηση Ραντεβου
+          {t("bookingTitle", lang)}
         </h1>
         <p className="text-gray-400 text-sm text-center mb-6">
           Δεληγιώργη 119-121, Πειραιάς 18534 · +30 6988251973
@@ -126,7 +136,7 @@ export default function BookPage() {
       <hr className="border-gray-800 mb-6" />
 
       <div className="px-4">
-        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">Επιλεξε Ημερα</h2>
+        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">{t("pickDay", lang)}</h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {days.map((d) => {
             const isSelected = formatDateStr(d) === dateStr;
@@ -143,7 +153,7 @@ export default function BookPage() {
                 }`}
               >
                 <div className={`text-xs uppercase ${isSelected ? "neon-text" : "text-gray-400"}`}>
-                  {DAY_LABELS_EL[d.getDay()]}
+                  {dayLabels[d.getDay()]}
                 </div>
                 <div className={`text-lg font-bold ${isSelected ? "text-white" : "text-gray-300"}`}>
                   {d.getDate()}/{d.getMonth() + 1}
@@ -155,11 +165,11 @@ export default function BookPage() {
       </div>
 
       <div className="px-4 mt-8">
-        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">Διαθεσιμεσ Ωρεσ</h2>
+        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">{t("availableHours", lang)}</h2>
 
-        {loadingSlots && <p className="text-gray-500 text-sm">Φόρτωση...</p>}
+        {loadingSlots && <p className="text-gray-500 text-sm">{t("loading", lang)}</p>}
         {!loadingSlots && slots.length === 0 && (
-          <p className="text-gray-500 text-sm">Κλειστά αυτή την ημέρα.</p>
+          <p className="text-gray-500 text-sm">{t("closedToday", lang)}</p>
         )}
 
         <div className="grid grid-cols-2 gap-4">
@@ -172,14 +182,14 @@ export default function BookPage() {
                   className="rounded-xl border border-gray-800 px-4 py-5 text-left"
                 >
                   <div className="text-2xl font-bold text-gray-500">{s.label}</div>
-                  <div className="text-sm text-gray-500 mt-1 mb-3">Γεμάτο</div>
+                  <div className="text-sm text-gray-500 mt-1 mb-3">{t("full", lang)}</div>
                   <button
                     onClick={() => toggleWaitlist(s)}
                     className={`text-xs rounded-md px-3 py-2 border w-full ${
                       s.waitlisted ? "neon-border neon-text" : "border-gray-600 text-gray-300"
                     }`}
                   >
-                    {s.waitlisted ? "Θα ειδοποιηθείτε ✓" : "Δήλωση ενδιαφέροντος"}
+                    {s.waitlisted ? t("willNotify", lang) : t("declareInterest", lang)}
                   </button>
                 </div>
               );
@@ -191,7 +201,9 @@ export default function BookPage() {
                 className="rounded-xl border border-gray-700 hover:neon-border px-4 py-5 text-left"
               >
                 <div className="text-2xl font-bold text-white">{s.label}</div>
-                <div className="text-sm text-gray-400 mt-1">{s.remaining} θέσεις</div>
+                <div className="text-sm text-gray-400 mt-1">
+                  {s.remaining} {t("spots", lang)}
+                </div>
               </button>
             );
           })}
@@ -209,27 +221,29 @@ export default function BookPage() {
           <div className="w-full rounded-t-2xl bg-heatBlack2 border-t neon-border px-6 py-8">
             <div className="text-3xl font-bold neon-text mb-1">{selectedSlot.label}</div>
             <div className="text-gray-300 mb-6">
-              {new Intl.DateTimeFormat("el-GR", { weekday: "long", day: "numeric", month: "numeric", year: "numeric" }).format(
-                selectedDate
-              )}
+              {new Intl.DateTimeFormat(lang === "el" ? "el-GR" : "en-GB", {
+                weekday: "long",
+                day: "numeric",
+                month: "numeric",
+                year: "numeric",
+              }).format(selectedDate)}
             </div>
 
             <div className="mb-4">
-              <div className="text-xs text-gray-400 mb-1">Όνομα</div>
+              <div className="text-xs text-gray-400 mb-1">{t("fullName", lang)}</div>
               <div className="rounded-lg bg-black border border-gray-700 px-4 py-3">
                 {session?.user?.name}
               </div>
             </div>
             <div className="mb-6">
-              <div className="text-xs text-gray-400 mb-1">Email</div>
+              <div className="text-xs text-gray-400 mb-1">{t("email", lang)}</div>
               <div className="rounded-lg bg-black border border-gray-700 px-4 py-3">
                 {session?.user?.email}
               </div>
             </div>
 
             <div className="rounded-lg border neon-border px-4 py-3 text-sm text-gray-200 mb-6">
-              Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού. Μετά από αυτό το όριο, το ραντεβού χρεώνεται
-              κανονικά.
+              {t("cancelPolicy", lang)}
             </div>
 
             {message && <p className="text-red-400 text-sm mb-3">{message}</p>}
@@ -239,26 +253,26 @@ export default function BookPage() {
                 onClick={() => setSelectedSlot(null)}
                 className="flex-1 rounded-lg border border-gray-600 py-3 text-gray-300"
               >
-                Άκυρο
+                {t("cancel", lang)}
               </button>
               <button
                 onClick={confirmBooking}
                 disabled={submitting}
                 className="flex-1 btn-neon rounded-lg py-3 disabled:opacity-60"
               >
-                {submitting ? "..." : "Κλείσε ραντεβού"}
+                {submitting ? "..." : t("confirmBooking", lang)}
               </button>
             </div>
           </div>
         </div>
       )}
       <div className="px-4 mt-10">
-        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">Τα Ραντεβου Μου</h2>
+        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">{t("myBookings", lang)}</h2>
 
         {cancelMessage && <p className="text-red-400 text-sm mb-3">{cancelMessage}</p>}
 
         {myBookings.filter((b) => b.status === "CONFIRMED").length === 0 && (
-          <p className="text-gray-500 text-sm">Δεν έχετε κλεισμένα ραντεβού.</p>
+          <p className="text-gray-500 text-sm">{t("noBookings", lang)}</p>
         )}
 
         <div className="flex flex-col gap-3">
@@ -276,13 +290,13 @@ export default function BookPage() {
                       {String(dt.getDate()).padStart(2, "0")}/{String(dt.getMonth() + 1).padStart(2, "0")}{" "}
                       {String(dt.getHours()).padStart(2, "0")}:00
                     </div>
-                    <div className="text-xs text-gray-500">{DAY_LABELS_EL[dt.getDay()]}</div>
+                    <div className="text-xs text-gray-500">{dayLabels[dt.getDay()]}</div>
                   </div>
                   <button
                     onClick={() => cancelMyBooking(b.id)}
                     className="text-xs rounded-md border border-gray-600 px-3 py-2 text-gray-300"
                   >
-                    Ακύρωση
+                    {t("cancelBooking", lang)}
                   </button>
                 </div>
               );

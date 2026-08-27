@@ -29,6 +29,8 @@ model User {
   createdAt     DateTime        @default(now())
   bookings      Booking[]
   waitlistEntries WaitlistEntry[]
+  resetToken    String?         @unique
+  resetTokenExpiresAt DateTime?
 }
 
 model Booking {
