@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slotDateTime, getSlotHoursForDate, SLOT_CAPACITY } from "@/lib/slots";
-import { sendOverLimitEmail } from "@/lib/email";
+import { sendOverLimitEmail, sendBookingConfirmationEmail } from "@/lib/email";
 
 // GET: the logged-in customer's own upcoming bookings, or (for admins) all bookings.
 export async function GET() {
@@ -83,13 +83,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Κάτι πήγε στραβά." }, { status: 500 });
   }
 
+  const slotLabel = `${date} ${String(hour).padStart(2, "0")}:00`;
+
+  await sendBookingConfirmationEmail({
+    fullName: result.user.fullName,
+    email: result.user.email,
+    slotLabel,
+  });
+
   if (result.overLimit) {
     await sendOverLimitEmail({
       fullName: result.user.fullName,
       email: result.user.email,
       monthlyLimit: result.user.monthlyLimit!,
       bookingsThisMonth: result.monthlyCount,
-      slotLabel: `${date} ${String(hour).padStart(2, "0")}:00`,
+      slotLabel,
     });
   }
 

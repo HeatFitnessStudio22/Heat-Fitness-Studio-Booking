@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { DAY_LABELS_EL, formatDateStr } from "@/lib/slots";
 
 type Slot = { hour: number; label: string; remaining: number };
+type MyBooking = { id: string; startsAt: string; status: string };
 
 function buildNextDays(count: number) {
   const days: Date[] = [];
@@ -26,8 +27,34 @@ export default function BookPage() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
+  const [cancelMessage, setCancelMessage] = useState<string | null>(null);
 
   const dateStr = formatDateStr(selectedDate);
+
+  function loadMyBookings() {
+    fetch("/api/bookings")
+      .then((r) => r.json())
+      .then((data) => setMyBookings(data.bookings || []));
+  }
+
+  useEffect(() => {
+    loadMyBookings();
+  }, []);
+
+  async function cancelMyBooking(id: string) {
+    setCancelMessage(null);
+    const res = await fetch(`/api/bookings/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) {
+      setCancelMessage(data.error || "Κάτι πήγε στραβά.");
+      return;
+    }
+    loadMyBookings();
+    fetch(`/api/slots?date=${dateStr}`)
+      .then((r) => r.json())
+      .then((data) => setSlots(data.slots || []));
+  }
 
   useEffect(() => {
     setLoadingSlots(true);
@@ -54,6 +81,7 @@ export default function BookPage() {
     }
     setSelectedSlot(null);
     setMessage("Το ραντεβού σας κλείστηκε!");
+    loadMyBookings();
     fetch(`/api/slots?date=${dateStr}`)
       .then((r) => r.json())
       .then((data) => setSlots(data.slots || []));
@@ -168,7 +196,7 @@ export default function BookPage() {
             </div>
 
             <div className="rounded-lg border neon-border px-4 py-3 text-sm text-gray-200 mb-6">
-              Ακύρωση δέχεται μέχρι 1 μέρα πριν το ραντεβού. Μετά από αυτό το όριο, το ραντεβού χρεώνεται
+              Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού. Μετά από αυτό το όριο, το ραντεβού χρεώνεται
               κανονικά.
             </div>
 
@@ -192,6 +220,43 @@ export default function BookPage() {
           </div>
         </div>
       )}
+      <div className="px-4 mt-10">
+        <h2 className="tracking-[0.2em] text-gray-300 text-xs uppercase mb-3">Τα Ραντεβου Μου</h2>
+
+        {cancelMessage && <p className="text-red-400 text-sm mb-3">{cancelMessage}</p>}
+
+        {myBookings.filter((b) => b.status === "CONFIRMED").length === 0 && (
+          <p className="text-gray-500 text-sm">Δεν έχετε κλεισμένα ραντεβού.</p>
+        )}
+
+        <div className="flex flex-col gap-3">
+          {myBookings
+            .filter((b) => b.status === "CONFIRMED")
+            .map((b) => {
+              const dt = new Date(b.startsAt);
+              return (
+                <div
+                  key={b.id}
+                  className="rounded-lg border border-gray-700 px-4 py-3 flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-white font-bold">
+                      {String(dt.getDate()).padStart(2, "0")}/{String(dt.getMonth() + 1).padStart(2, "0")}{" "}
+                      {String(dt.getHours()).padStart(2, "0")}:00
+                    </div>
+                    <div className="text-xs text-gray-500">{DAY_LABELS_EL[dt.getDay()]}</div>
+                  </div>
+                  <button
+                    onClick={() => cancelMyBooking(b.id)}
+                    className="text-xs rounded-md border border-gray-600 px-3 py-2 text-gray-300"
+                  >
+                    Ακύρωση
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+      </div>
     </main>
   );
 }

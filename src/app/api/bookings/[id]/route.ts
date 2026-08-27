@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma";
 
 // DELETE /api/bookings/:id - cancel a booking.
 // Admins can cancel any booking (this is the gym's "decline a client" button).
-// Customers can cancel their own booking, subject to the 1-day policy shown
-// in the UI ("Ακύρωση δέχεται μέχρι 1 μέρα πριν το ραντεβού...").
+// Customers can cancel their own booking, subject to the 4-hour policy shown
+// in the UI ("Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού...").
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,10 +21,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   }
 
   if (!isAdmin) {
-    const oneDayBefore = new Date(booking.startsAt.getTime() - 24 * 60 * 60 * 1000);
-    if (Date.now() > oneDayBefore.getTime()) {
+    const fourHoursBefore = new Date(booking.startsAt.getTime() - 4 * 60 * 60 * 1000);
+    if (Date.now() > fourHoursBefore.getTime()) {
       return NextResponse.json(
-        { error: "Η ακύρωση δεν είναι πλέον δυνατή (λιγότερο από 1 μέρα πριν το ραντεβού)." },
+        { error: "Η ακύρωση δεν είναι πλέον δυνατή (λιγότερο από 4 ώρες πριν το ραντεβού)." },
         { status: 400 }
       );
     }
