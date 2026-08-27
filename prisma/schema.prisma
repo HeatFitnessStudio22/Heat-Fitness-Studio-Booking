@@ -18,16 +18,17 @@ enum BookingStatus {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  fullName     String
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(CUSTOMER)
+  id            String          @id @default(cuid())
+  fullName      String
+  email         String          @unique
+  passwordHash  String
+  role          Role            @default(CUSTOMER)
   // Monthly booking limit set by the gym admin for this email.
   // null = no limit enforced.
-  monthlyLimit Int?
-  createdAt    DateTime  @default(now())
-  bookings     Booking[]
+  monthlyLimit  Int?
+  createdAt     DateTime        @default(now())
+  bookings      Booking[]
+  waitlistEntries WaitlistEntry[]
 }
 
 model Booking {
@@ -43,5 +44,19 @@ model Booking {
 
   @@index([startsAt])
   @@index([userId])
+}
+
+// A customer expressing interest in a full slot, in case someone cancels.
+// Promoted FIFO (oldest createdAt first) if a cancellation frees up a spot
+// at least 1.5 hours before the slot's start time.
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([userId, startsAt])
+  @@index([startsAt])
 }
 

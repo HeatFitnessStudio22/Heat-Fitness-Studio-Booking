@@ -2,6 +2,33 @@ import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+// Sends notice to a customer who just got auto-booked from the waitlist
+// because someone else cancelled.
+export async function sendWaitlistPromotedEmail(params: {
+  fullName: string;
+  email: string;
+  slotLabel: string;
+}) {
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || "HEAT Booking <onboarding@resend.dev>",
+    to: params.email,
+    subject: `HEAT: Ελευθερώθηκε θέση - το ραντεβού σας επιβεβαιώθηκε!`,
+    html: `
+      <div style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px">
+        <h2 style="color:#E4FF1A">Ελευθερώθηκε θέση!</h2>
+        <p>Γεια σου <strong>${params.fullName}</strong>,</p>
+        <p>Είχες δηλώσει ενδιαφέρον για μια γεμάτη προπόνηση, και μόλις ελευθερώθηκε θέση.
+        Το ραντεβού σου επιβεβαιώθηκε αυτόματα για:</p>
+        <p style="font-size:20px;font-weight:bold">${params.slotLabel}</p>
+        <p>Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού, μέσα από την εφαρμογή.</p>
+        <p style="color:#999;font-size:13px">Δεληγιώργη 119-121, Πειραιάς 18534 · +30 6988251973</p>
+      </div>
+    `,
+  });
+}
+
 // Sends a booking confirmation email to the customer who just booked.
 // Silently no-ops if RESEND_API_KEY isn't set.
 export async function sendBookingConfirmationEmail(params: {
@@ -22,6 +49,33 @@ export async function sendBookingConfirmationEmail(params: {
         <p>Η προπόνησή σου στο HEAT The Fitness Studio κλείστηκε για:</p>
         <p style="font-size:20px;font-weight:bold">${params.slotLabel}</p>
         <p>Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού, μέσα από την εφαρμογή.</p>
+        <p style="color:#999;font-size:13px">Δεληγιώργη 119-121, Πειραιάς 18534 · +30 6988251973</p>
+      </div>
+    `,
+  });
+}
+
+// Sends the "you're over your monthly limit" notice to the customer themselves.
+export async function sendCustomerOverLimitEmail(params: {
+  fullName: string;
+  email: string;
+  monthlyLimit: number;
+  bookingsThisMonth: number;
+  slotLabel: string;
+}) {
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || "HEAT Booking <onboarding@resend.dev>",
+    to: params.email,
+    subject: `HEAT: Ξεπεράσατε το μηνιαίο σας όριο`,
+    html: `
+      <div style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px">
+        <h2 style="color:#E4FF1A">Ξεπεράσατε το μηνιαίο σας όριο προπονήσεων</h2>
+        <p>Γεια σου <strong>${params.fullName}</strong>,</p>
+        <p>Το ραντεβού σου για <strong>${params.slotLabel}</strong> επιβεβαιώθηκε κανονικά,
+        αλλά θέλουμε να σε ενημερώσουμε ότι έχεις ήδη ${params.bookingsThisMonth} προπονήσεις
+        αυτόν τον μήνα, ενώ το όριό σου είναι ${params.monthlyLimit}.</p>
         <p style="color:#999;font-size:13px">Δεληγιώργη 119-121, Πειραιάς 18534 · +30 6988251973</p>
       </div>
     `,

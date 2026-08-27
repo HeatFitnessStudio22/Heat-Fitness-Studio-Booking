@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DAY_LABELS_EL, formatDateStr } from "@/lib/slots";
 
-type Slot = { hour: number; label: string; remaining: number };
+type Slot = { hour: number; label: string; remaining: number; waitlisted: boolean };
 type MyBooking = { id: string; startsAt: string; status: string };
 
 function buildNextDays(count: number) {
@@ -87,6 +87,24 @@ export default function BookPage() {
       .then((data) => setSlots(data.slots || []));
   }
 
+  async function toggleWaitlist(slot: Slot) {
+    setMessage(null);
+    const method = slot.waitlisted ? "DELETE" : "POST";
+    const res = await fetch("/api/waitlist", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: dateStr, hour: slot.hour }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error || "Κάτι πήγε στραβά.");
+      return;
+    }
+    fetch(`/api/slots?date=${dateStr}`)
+      .then((r) => r.json())
+      .then((data) => setSlots(data.slots || []));
+  }
+
   return (
     <main className="min-h-screen pb-16">
       <div className="flex justify-end px-4 pt-4">
@@ -147,19 +165,33 @@ export default function BookPage() {
         <div className="grid grid-cols-2 gap-4">
           {slots.map((s) => {
             const full = s.remaining <= 0;
+            if (full) {
+              return (
+                <div
+                  key={s.hour}
+                  className="rounded-xl border border-gray-800 px-4 py-5 text-left"
+                >
+                  <div className="text-2xl font-bold text-gray-500">{s.label}</div>
+                  <div className="text-sm text-gray-500 mt-1 mb-3">Γεμάτο</div>
+                  <button
+                    onClick={() => toggleWaitlist(s)}
+                    className={`text-xs rounded-md px-3 py-2 border w-full ${
+                      s.waitlisted ? "neon-border neon-text" : "border-gray-600 text-gray-300"
+                    }`}
+                  >
+                    {s.waitlisted ? "Θα ειδοποιηθείτε ✓" : "Δήλωση ενδιαφέροντος"}
+                  </button>
+                </div>
+              );
+            }
             return (
               <button
                 key={s.hour}
-                disabled={full}
                 onClick={() => setSelectedSlot(s)}
-                className={`rounded-xl border px-4 py-5 text-left ${
-                  full ? "border-gray-800 opacity-40" : "border-gray-700 hover:neon-border"
-                }`}
+                className="rounded-xl border border-gray-700 hover:neon-border px-4 py-5 text-left"
               >
                 <div className="text-2xl font-bold text-white">{s.label}</div>
-                <div className="text-sm text-gray-400 mt-1">
-                  {full ? "Γεμάτο" : `${s.remaining} θέσεις`}
-                </div>
+                <div className="text-sm text-gray-400 mt-1">{s.remaining} θέσεις</div>
               </button>
             );
           })}
