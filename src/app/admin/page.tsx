@@ -142,6 +142,28 @@ export default function AdminPage() {
       )}
 
       {!loading && (
+        <section className="mb-10">
+          <h2 className="text-sm uppercase tracking-widest text-gray-300 mb-3">
+            Ρυθμισμένα όρια
+          </h2>
+          <div className="rounded-lg border border-gray-700 px-4 py-3">
+            {users.filter((u) => u.monthlyLimit !== null).length === 0 && (
+              <p className="text-gray-500 text-sm">Δεν έχετε ορίσει όρια ακόμα.</p>
+            )}
+            <div className="flex flex-col gap-1">
+              {users
+                .filter((u) => u.monthlyLimit !== null)
+                .map((u) => (
+                  <div key={u.id} className="text-sm text-gray-200">
+                    {u.email} <span className="neon-text">({u.monthlyLimit})</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!loading && (
         <section>
           <h2 className="text-sm uppercase tracking-widest text-gray-300 mb-3">
             Μηνιαία όρια πελατών
