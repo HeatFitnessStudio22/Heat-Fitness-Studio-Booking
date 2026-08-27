@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slotDateTime, getSlotHoursForDate, SLOT_CAPACITY } from "@/lib/slots";
-import { sendOverLimitEmail, sendBookingConfirmationEmail } from "@/lib/email";
+import { sendOverLimitEmail, sendBookingConfirmationEmail, sendCustomerOverLimitEmail } from "@/lib/email";
 
 // GET: the logged-in customer's own upcoming bookings, or (for admins) all bookings.
 export async function GET() {
@@ -57,6 +57,20 @@ export async function POST(req: Request) {
       const user = await tx.user.findUnique({ where: { id: session.user.id } });
       if (!user) throw new Error("NO_USER");
 
+      // At most one confirmed booking per customer per calendar day.
+      const dayStart = new Date(startsAt.getFullYear(), startsAt.getMonth(), startsAt.getDate());
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const sameDayCount = await tx.booking.count({
+        where: {
+          userId: user.id,
+          status: "CONFIRMED",
+          startsAt: { gte: dayStart, lt: dayEnd },
+        },
+      });
+      if (sameDayCount >= 1) {
+        throw new Error("ONE_PER_DAY");
+      }
+
       // Count this customer's confirmed bookings within the same calendar month.
       const monthStart = new Date(startsAt.getFullYear(), startsAt.getMonth(), 1);
       const monthEnd = new Date(startsAt.getFullYear(), startsAt.getMonth() + 1, 1);
@@ -80,6 +94,12 @@ export async function POST(req: Request) {
     if (err.message === "FULL") {
       return NextResponse.json({ error: "Δυστυχώς η ώρα μόλις γέμισε." }, { status: 409 });
     }
+    if (err.message === "ONE_PER_DAY") {
+      return NextResponse.json(
+        { error: "Έχετε ήδη κλεισμένο ραντεβού για αυτή την ημέρα. Επιτρέπεται μόνο ένα ραντεβού ανά ημέρα." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: "Κάτι πήγε στραβά." }, { status: 500 });
   }
 
@@ -92,6 +112,13 @@ export async function POST(req: Request) {
   });
 
   if (result.overLimit) {
+    await sendCustomerOverLimitEmail({
+      fullName: result.user.fullName,
+      email: result.user.email,
+      monthlyLimit: result.user.monthlyLimit!,
+      bookingsThisMonth: result.monthlyCount,
+      slotLabel,
+    });
     await sendOverLimitEmail({
       fullName: result.user.fullName,
       email: result.user.email,
