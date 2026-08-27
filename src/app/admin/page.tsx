@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [limitDraft, setLimitDraft] = useState<Record<string, string>>({});
+  const [limitStatus, setLimitStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
   const [loading, setLoading] = useState(true);
 
   async function loadAll() {
@@ -48,12 +49,25 @@ export default function AdminPage() {
   async function saveLimit(email: string) {
     const raw = limitDraft[email];
     const monthlyLimit = raw === "" || raw === undefined ? null : Number(raw);
-    await fetch("/api/admin/limits", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, monthlyLimit }),
-    });
-    loadAll();
+    setLimitStatus((prev) => ({ ...prev, [email]: "saving" }));
+    try {
+      const res = await fetch("/api/admin/limits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, monthlyLimit }),
+      });
+      if (!res.ok) throw new Error("failed");
+      setLimitStatus((prev) => ({ ...prev, [email]: "saved" }));
+      setLimitDraft((prev) => {
+        const next = { ...prev };
+        delete next[email];
+        return next;
+      });
+      await loadAll();
+      setTimeout(() => setLimitStatus((prev) => ({ ...prev, [email]: undefined as any })), 2500);
+    } catch {
+      setLimitStatus((prev) => ({ ...prev, [email]: "error" }));
+    }
   }
 
   const upcoming = bookings
@@ -155,10 +169,17 @@ export default function AdminPage() {
                   />
                   <button
                     onClick={() => saveLimit(u.email)}
-                    className="text-xs rounded-md btn-neon px-3 py-2"
+                    disabled={limitStatus[u.email] === "saving"}
+                    className="text-xs rounded-md btn-neon px-3 py-2 disabled:opacity-60"
                   >
-                    Αποθήκευση
+                    {limitStatus[u.email] === "saving" ? "..." : "Αποθήκευση"}
                   </button>
+                  {limitStatus[u.email] === "saved" && (
+                    <span className="text-xs neon-text">Αποθηκεύτηκε!</span>
+                  )}
+                  {limitStatus[u.email] === "error" && (
+                    <span className="text-xs text-red-400">Σφάλμα, δοκιμάστε ξανά.</span>
+                  )}
                 </div>
               </div>
             ))}
