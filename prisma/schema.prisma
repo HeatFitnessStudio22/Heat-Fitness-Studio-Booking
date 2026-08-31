@@ -57,6 +57,8 @@ model WaitlistEntry {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   startsAt  DateTime
   createdAt DateTime @default(now())
+  offerToken String? @unique
+  offeredAt  DateTime?
 
   @@unique([userId, startsAt])
   @@index([startsAt])

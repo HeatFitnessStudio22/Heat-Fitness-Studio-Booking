@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendWaitlistPromotedEmail } from "@/lib/email";
+import { sendWaitlistOfferEmail } from "@/lib/email";
 
 // DELETE /api/bookings/:id - cancel a booking.
 // Admins can cancel any booking (this is the gym's "decline a client" button).
-// Customers can cancel their own booking, subject to the 4-hour policy shown
-// in the UI ("Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού...").
+// Customers can cancel their own booking up to 4 hours before it starts.
 //
 // If the slot's start time is still at least 1.5 hours away, the oldest
-// (FIFO) waitlist entry for that exact slot is automatically promoted to a
-// confirmed booking, and that customer is emailed.
+// (FIFO) waitlist entry for that exact slot is offered the spot by email -
+// they must confirm before it's actually booked for them.
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,7 +29,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const fourHoursBefore = new Date(booking.startsAt.getTime() - 4 * 60 * 60 * 1000);
     if (Date.now() > fourHoursBefore.getTime()) {
       return NextResponse.json(
-        { error: "Η ακύρωση δεν είναι πλέον δυνατή (λιγότερο από 4 ώρες πριν το ραντεβού)." },
+        {
+          error:
+            "Έχει περάσει το χρονικό όριο ακύρωσης (4 ώρες πριν το ραντεβού). Η ακύρωση δεν είναι πλέον δυνατή και ενδέχεται να υπάρχει χρέωση.",
+        },
         { status: 400 }
       );
     }
@@ -37,21 +40,22 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
   await prisma.booking.update({ where: { id: params.id }, data: { status: "CANCELLED" } });
 
-  // Try to promote someone from the waitlist for this exact slot, but only
-  // if there's still at least 1.5 hours until it starts.
+  // Offer the spot to the oldest (FIFO) waitlist entry for this exact slot,
+  // but only if there's still at least 1.5 hours until it starts.
   const ninetyMinBefore = new Date(booking.startsAt.getTime() - 90 * 60 * 1000);
   if (Date.now() < ninetyMinBefore.getTime()) {
     const nextInLine = await prisma.waitlistEntry.findFirst({
-      where: { startsAt: booking.startsAt },
+      where: { startsAt: booking.startsAt, offerToken: null },
       orderBy: { createdAt: "asc" },
       include: { user: true },
     });
 
     if (nextInLine) {
-      const promotedBooking = await prisma.booking.create({
-        data: { userId: nextInLine.userId, startsAt: booking.startsAt },
+      const token = crypto.randomBytes(24).toString("hex");
+      await prisma.waitlistEntry.update({
+        where: { id: nextInLine.id },
+        data: { offerToken: token, offeredAt: new Date() },
       });
-      await prisma.waitlistEntry.delete({ where: { id: nextInLine.id } });
 
       const slotLabel = `${new Intl.DateTimeFormat("el-GR", {
         day: "2-digit",
@@ -59,10 +63,14 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         year: "numeric",
       }).format(booking.startsAt)} ${String(booking.startsAt.getHours()).padStart(2, "0")}:00`;
 
-      await sendWaitlistPromotedEmail({
+      const base = process.env.NEXTAUTH_URL || "";
+      const offerUrl = `${base}/waitlist-offer?token=${token}`;
+
+      await sendWaitlistOfferEmail({
         fullName: nextInLine.user.fullName,
         email: nextInLine.user.email,
         slotLabel,
+        offerUrl,
       });
     }
   }

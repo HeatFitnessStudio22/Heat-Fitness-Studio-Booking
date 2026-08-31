@@ -65,8 +65,8 @@ export const T: Dict = {
   loading: { el: "Φόρτωση...", en: "Loading..." },
   closedToday: { el: "Κλειστά αυτή την ημέρα.", en: "Closed on this day." },
   cancelPolicy: {
-    el: "Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού. Μετά από αυτό το όριο, το ραντεβού χρεώνεται κανονικά.",
-    en: "Cancellations are accepted up to 4 hours before the appointment. After that, the appointment is charged as normal.",
+    el: "Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού (ή έως 1,5 ώρα αν υπάρχει λίστα αναμονής για την ώρα σας). Μετά από αυτό το όριο, το ραντεβού χρεώνεται κανονικά.",
+    en: "Cancellations are accepted up to 4 hours before the appointment (or up to 1.5 hours if there's a waitlist for your slot). After that, the appointment is charged as normal.",
   },
   cancel: { el: "Άκυρο", en: "Cancel" },
   confirmBooking: { el: "Κλείσε ραντεβού", en: "Confirm booking" },

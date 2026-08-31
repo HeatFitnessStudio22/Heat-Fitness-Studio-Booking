@@ -28,28 +28,29 @@ export async function sendPasswordResetEmail(params: { fullName: string; email: 
   });
 }
 
-// Sends notice to a customer who just got auto-booked from the waitlist
-// because someone else cancelled.
-export async function sendWaitlistPromotedEmail(params: {
+// Offers a customer on the waitlist the chance to take a spot that just
+// opened up. They must click the link and confirm - it isn't automatic.
+export async function sendWaitlistOfferEmail(params: {
   fullName: string;
   email: string;
   slotLabel: string;
+  offerUrl: string;
 }) {
   if (!resend) return;
 
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || "HEAT Booking <onboarding@resend.dev>",
     to: params.email,
-    subject: `HEAT: Ελευθερώθηκε θέση - το ραντεβού σας επιβεβαιώθηκε!`,
+    subject: `HEAT: Ελευθερώθηκε θέση - θέλετε να την κλείσετε;`,
     html: `
       <div style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px">
         <h2 style="color:#E4FF1A">Ελευθερώθηκε θέση!</h2>
         <p>Γεια σου <strong>${params.fullName}</strong>,</p>
-        <p>Είχες δηλώσει ενδιαφέρον για μια γεμάτη προπόνηση, και μόλις ελευθερώθηκε θέση.
-        Το ραντεβού σου επιβεβαιώθηκε αυτόματα για:</p>
+        <p>Είχες δηλώσει ενδιαφέρον για μια γεμάτη προπόνηση, και μόλις ελευθερώθηκε θέση για:</p>
         <p style="font-size:20px;font-weight:bold">${params.slotLabel}</p>
-        <p>Ακύρωση δέχεται μέχρι 4 ώρες πριν το ραντεβού, μέσα από την εφαρμογή.</p>
-        <p style="color:#999;font-size:13px">Δεληγιώργη 119-121, Πειραιάς 18534 · +30 6988251973</p>
+        <p>Θέλεις να την κλείσεις; Πάτησε τον παρακάτω σύνδεσμο για να απαντήσεις:</p>
+        <p><a href="${params.offerUrl}" style="color:#E4FF1A">${params.offerUrl}</a></p>
+        <p style="color:#999;font-size:13px">Η προσφορά ισχύει μέχρι να ξεκινήσει η προπόνηση ή μέχρι να απαντήσει κάποιος άλλος πιο γρήγορα.</p>
       </div>
     `,
   });

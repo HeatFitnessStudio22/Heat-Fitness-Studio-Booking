@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { signOut } from "next-auth/react";
+import { getSlotHoursForDate, DAY_LABELS_EL, formatDateStr } from "@/lib/slots";
+
+function formatDT(iso: string) {
+  const d = new Date(iso);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  return `${day}/${month}/${d.getFullYear()}, ${hh}:00`;
+}
 
 type Booking = {
   id: string;
@@ -25,6 +34,7 @@ export default function AdminPage() {
   const [limitDraft, setLimitDraft] = useState<Record<string, string>>({});
   const [limitStatus, setLimitStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
   const [loading, setLoading] = useState(true);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   async function loadAll() {
     setLoading(true);
@@ -76,6 +86,42 @@ export default function AdminPage() {
 
   const overLimitBookings = upcoming.filter((b) => b.overLimit);
 
+  // Weekly calendar: Monday..Saturday of the week offset by weekOffset weeks
+  // from today (Sunday is always closed, so it's skipped).
+  const weekDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dow = today.getDay(); // 0=Sun..6=Sat
+    const daysSinceMonday = dow === 0 ? 6 : dow - 1;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - daysSinceMonday + weekOffset * 7);
+    const days: Date[] = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [weekOffset]);
+
+  const calendarHours = useMemo(() => {
+    const set = new Set<number>();
+    for (const d of weekDays) for (const h of getSlotHoursForDate(d)) set.add(h);
+    return Array.from(set).sort((a, b) => a - b);
+  }, [weekDays]);
+
+  const bookingsByDayHour = useMemo(() => {
+    const map = new Map<string, Booking[]>();
+    for (const b of bookings) {
+      if (b.status !== "CONFIRMED") continue;
+      const d = new Date(b.startsAt);
+      const key = `${formatDateStr(d)}_${d.getHours()}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(b);
+    }
+    return map;
+  }, [bookings]);
+
   return (
     <main className="min-h-screen px-4 py-8 max-w-3xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -99,7 +145,7 @@ export default function AdminPage() {
                   <div className="font-semibold">{b.user.fullName}</div>
                   <div className="text-xs text-gray-400">{b.user.email}</div>
                   <div className="text-xs text-gray-300 mt-1">
-                    {new Date(b.startsAt).toLocaleString("el-GR")}
+                    {formatDT(b.startsAt)}
                   </div>
                 </div>
                 <button onClick={() => cancelBooking(b.id)} className="text-xs rounded-md border border-gray-600 px-3 py-2">
@@ -128,7 +174,7 @@ export default function AdminPage() {
                   <div className="font-semibold">{b.user.fullName}</div>
                   <div className="text-xs text-gray-400">{b.user.email}</div>
                   <div className="text-xs text-gray-300 mt-1">
-                    {new Date(b.startsAt).toLocaleString("el-GR")}
+                    {formatDT(b.startsAt)}
                   </div>
                 </div>
                 <button onClick={() => cancelBooking(b.id)} className="text-xs rounded-md border border-gray-600 px-3 py-2">
@@ -137,6 +183,87 @@ export default function AdminPage() {
               </div>
             ))}
             {upcoming.length === 0 && <p className="text-gray-500 text-sm">Δεν υπάρχουν ραντεβού.</p>}
+          </div>
+        </section>
+      )}
+
+      {!loading && (
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm uppercase tracking-widest text-gray-300">Ημερολόγιο</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setWeekOffset((w) => w - 1)}
+                className="text-xs rounded-md border border-gray-600 px-2 py-1"
+              >
+                ‹
+              </button>
+              <button
+                onClick={() => setWeekOffset(0)}
+                className="text-xs rounded-md border border-gray-600 px-2 py-1"
+              >
+                Σήμερα
+              </button>
+              <button
+                onClick={() => setWeekOffset((w) => w + 1)}
+                className="text-xs rounded-md border border-gray-600 px-2 py-1"
+              >
+                ›
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse min-w-[600px]">
+              <thead>
+                <tr>
+                  <th className="text-left text-gray-500 font-normal pb-2 pr-2 w-14"></th>
+                  {weekDays.map((d) => (
+                    <th key={formatDateStr(d)} className="text-center text-gray-400 font-normal pb-2 px-1">
+                      <div>{DAY_LABELS_EL[d.getDay()]}</div>
+                      <div className="text-gray-200 font-bold">
+                        {d.getDate()}/{d.getMonth() + 1}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {calendarHours.map((h) => (
+                  <tr key={h}>
+                    <td className="text-gray-500 pr-2 py-1 align-top">{String(h).padStart(2, "0")}:00</td>
+                    {weekDays.map((d) => {
+                      const open = getSlotHoursForDate(d).includes(h);
+                      const key = `${formatDateStr(d)}_${h}`;
+                      const cellBookings = bookingsByDayHour.get(key) || [];
+                      return (
+                        <td key={key} className="px-1 py-1 align-top">
+                          {!open ? (
+                            <div className="h-8 rounded bg-gray-900" />
+                          ) : cellBookings.length === 0 ? (
+                            <div className="h-8 rounded border border-gray-800" />
+                          ) : (
+                            <div
+                              className={`rounded border px-1 py-1 ${
+                                cellBookings.length >= 7
+                                  ? "border-red-500/50 bg-red-500/10"
+                                  : "neon-border bg-white/5"
+                              }`}
+                              title={cellBookings.map((b) => b.user.fullName).join(", ")}
+                            >
+                              <div className="truncate text-[10px] leading-tight">
+                                {cellBookings[0].user.fullName.split(" ")[0]}
+                                {cellBookings.length > 1 ? ` +${cellBookings.length - 1}` : ""}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
