@@ -3,10 +3,11 @@ import crypto from "crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendWaitlistOfferEmail } from "@/lib/email";
+import { sendWaitlistOfferEmail, sendBookingCancelledEmail } from "@/lib/email";
 
 // DELETE /api/bookings/:id - cancel a booking.
-// Admins can cancel any booking (this is the gym's "decline a client" button).
+// Admins can cancel any booking (this is the gym's "decline a client" button)
+// - the affected customer is emailed that their booking was cancelled.
 // Customers can cancel their own booking up to 4 hours before it starts.
 //
 // If the slot's start time is still at least 1.5 hours away, the oldest
@@ -16,7 +17,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const booking = await prisma.booking.findUnique({ where: { id: params.id } });
+  const booking = await prisma.booking.findUnique({
+    where: { id: params.id },
+    include: { user: true },
+  });
   if (!booking) return NextResponse.json({ error: "Δεν βρέθηκε." }, { status: 404 });
 
   const isAdmin = session.user.role === "ADMIN";
@@ -40,6 +44,20 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
   await prisma.booking.update({ where: { id: params.id }, data: { status: "CANCELLED" } });
 
+  const slotLabel = `${new Intl.DateTimeFormat("el-GR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(booking.startsAt)} ${String(booking.startsAt.getHours()).padStart(2, "0")}:00`;
+
+  if (isAdmin) {
+    await sendBookingCancelledEmail({
+      fullName: booking.user.fullName,
+      email: booking.user.email,
+      slotLabel,
+    });
+  }
+
   // Offer the spot to the oldest (FIFO) waitlist entry for this exact slot,
   // but only if there's still at least 1.5 hours until it starts.
   const ninetyMinBefore = new Date(booking.startsAt.getTime() - 90 * 60 * 1000);
@@ -56,12 +74,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         where: { id: nextInLine.id },
         data: { offerToken: token, offeredAt: new Date() },
       });
-
-      const slotLabel = `${new Intl.DateTimeFormat("el-GR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }).format(booking.startsAt)} ${String(booking.startsAt.getHours()).padStart(2, "0")}:00`;
 
       const base = process.env.NEXTAUTH_URL || "";
       const offerUrl = `${base}/waitlist-offer?token=${token}`;

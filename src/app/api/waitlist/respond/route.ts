@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { sendWaitlistOfferEmail } from "@/lib/email";
+import { getCapacityForDateStr, formatDateStr } from "@/lib/slots";
 
 // POST { token, accept: boolean }
 // Accept: books the slot for that waitlisted customer (if it's still free
@@ -28,9 +29,8 @@ export async function POST(req: Request) {
     const takenCount = await prisma.booking.count({
       where: { startsAt: entry.startsAt, status: "CONFIRMED" },
     });
-    // Re-use SLOT_CAPACITY indirectly via a hard check against 7, matching
-    // the gym's fixed per-hour capacity used everywhere else in the app.
-    if (takenCount >= 7) {
+    // Respect the same per-date capacity used everywhere else in the app.
+    if (takenCount >= getCapacityForDateStr(formatDateStr(entry.startsAt))) {
       await prisma.waitlistEntry.delete({ where: { id: entry.id } });
       return NextResponse.json({ error: "Δυστυχώς η θέση καλύφθηκε ήδη." }, { status: 409 });
     }

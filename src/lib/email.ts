@@ -28,6 +28,25 @@ export async function sendPasswordResetEmail(params: { fullName: string; email: 
   });
 }
 
+// Sends notice to a customer that their booking was cancelled by the gym.
+export async function sendBookingCancelledEmail(params: { fullName: string; email: string; slotLabel: string }) {
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || "HEAT Booking <onboarding@resend.dev>",
+    to: params.email,
+    subject: `HEAT: Το ραντεβού σας ακυρώθηκε`,
+    html: `
+      <div style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px">
+        <h2 style="color:#E4FF1A">Το ραντεβού σας ακυρώθηκε</h2>
+        <p>Γεια σου <strong>${params.fullName}</strong>,</p>
+        <p>Το ραντεβού σου στο HEAT The Fitness Studio για <strong>${params.slotLabel}</strong> ακυρώθηκε από το γυμναστήριο.</p>
+        <p style="color:#999;font-size:13px">Αν έχεις ερωτήσεις, επικοινώνησε μαζί μας στο +30 6988251973.</p>
+      </div>
+    `,
+  });
+}
+
 // Offers a customer on the waitlist the chance to take a spot that just
 // opened up. They must click the link and confirm - it isn't automatic.
 export async function sendWaitlistOfferEmail(params: {

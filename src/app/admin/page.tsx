@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { signOut } from "next-auth/react";
-import { getSlotHoursForDate, DAY_LABELS_EL, formatDateStr } from "@/lib/slots";
+import { getSlotHoursForDate, DAY_LABELS_EL, formatDateStr, getCapacityForDateStr } from "@/lib/slots";
 
 function formatDT(iso: string) {
   const d = new Date(iso);
@@ -55,6 +55,20 @@ export default function AdminPage() {
   async function cancelBooking(id: string) {
     if (!confirm("Ακύρωση αυτού του ραντεβού;")) return;
     await fetch(`/api/bookings/${id}`, { method: "DELETE" });
+    loadAll();
+  }
+
+  async function blockSlot(date: string, hour: number) {
+    const res = await fetch("/api/admin/block-slot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, hour }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Κάτι πήγε στραβά.");
+      return;
+    }
     loadAll();
   }
 
@@ -321,6 +335,15 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
+                  {cellBookings.length < getCapacityForDateStr(dateStr) && (
+                    <button
+                      onClick={() => blockSlot(dateStr, Number(hourStr))}
+                      className="mt-3 w-full text-xs rounded-md border border-gray-600 px-3 py-2 text-gray-300"
+                    >
+                      + Κλείσιμο θέσης (
+                      {getCapacityForDateStr(dateStr) - cellBookings.length} διαθέσιμες)
+                    </button>
+                  )}
                 </div>
               );
             })()}

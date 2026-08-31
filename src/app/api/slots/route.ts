@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getSlotHoursForDate, slotDateTime, SLOT_CAPACITY } from "@/lib/slots";
+import { getSlotHoursForDate, slotDateTime, getCapacityForDateStr } from "@/lib/slots";
 
 // GET /api/slots?date=YYYY-MM-DD
 // Returns available hours for that date with remaining capacity.
@@ -46,12 +46,13 @@ export async function GET(req: Request) {
     waitlistedHours = new Set(entries.map((e) => e.startsAt.getHours()));
   }
 
+  const capacity = getCapacityForDateStr(dateStr);
   const slots = hours.map((hour) => {
     const taken = counts.get(hour) ?? 0;
     return {
       hour,
       label: `${String(hour).padStart(2, "0")}:00`,
-      remaining: Math.max(0, SLOT_CAPACITY - taken),
+      remaining: Math.max(0, capacity - taken),
       waitlisted: waitlistedHours.has(hour),
     };
   });

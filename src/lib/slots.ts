@@ -4,6 +4,16 @@
 
 export const SLOT_CAPACITY = 7;
 
+// Per-date capacity overrides. Falls back to SLOT_CAPACITY when the date
+// isn't listed. Keyed by "YYYY-MM-DD".
+const CAPACITY_OVERRIDES: Record<string, number> = {
+  "2026-09-01": 1,
+};
+
+export function getCapacityForDateStr(dateStr: string): number {
+  return CAPACITY_OVERRIDES[dateStr] ?? SLOT_CAPACITY;
+}
+
 // 0 = Sunday ... 6 = Saturday (JS Date.getDay() convention)
 // Each range is [startHour, endHour) in 24h local (Europe/Athens) time.
 type Range = { start: number; end: number };
