@@ -19,19 +19,24 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, password }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || t("somethingWrong", lang));
-      return;
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || t("somethingWrong", lang));
+        return;
+      }
+      setDone(true);
+      setTimeout(() => router.push("/login"), 2500);
+    } catch {
+      setError(t("somethingWrong", lang));
+    } finally {
+      setLoading(false);
     }
-    setDone(true);
-    setTimeout(() => router.push("/login"), 2500);
   }
 
   return (

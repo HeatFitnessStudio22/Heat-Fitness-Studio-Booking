@@ -18,18 +18,23 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, email, password }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || t("somethingWrong", lang));
-      return;
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || t("somethingWrong", lang));
+        return;
+      }
+      router.push("/login");
+    } catch {
+      setError(t("somethingWrong", lang));
+    } finally {
+      setLoading(false);
     }
-    router.push("/login");
   }
 
   return (

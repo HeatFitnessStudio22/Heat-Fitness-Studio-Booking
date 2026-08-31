@@ -18,14 +18,19 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await signIn("credentials", { redirect: false, email, password });
-    setLoading(false);
-    if (res?.error) {
-      setError(t("wrongCreds", lang));
-      return;
+    try {
+      const res = await signIn("credentials", { redirect: false, email, password });
+      if (res?.error) {
+        setError(t("wrongCreds", lang));
+        return;
+      }
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError(t("somethingWrong", lang));
+    } finally {
+      setLoading(false);
     }
-    router.push("/");
-    router.refresh();
   }
 
   return (
