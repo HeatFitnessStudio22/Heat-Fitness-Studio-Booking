@@ -103,7 +103,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Κάτι πήγε στραβά." }, { status: 500 });
   }
 
-  const slotLabel = `${date} ${String(hour).padStart(2, "0")}:00`;
+  const [yy, mm, dd] = date.split("-");
+  const slotLabel = `${dd}-${mm}-${yy} ${String(hour).padStart(2, "0")}:00`;
 
   await sendBookingConfirmationEmail({
     fullName: result.user.fullName,
