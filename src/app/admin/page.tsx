@@ -35,6 +35,8 @@ export default function AdminPage() {
   const [limitStatus, setLimitStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
   const [loading, setLoading] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedCell, setSelectedCell] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   async function loadAll() {
     setLoading(true);
@@ -159,36 +161,6 @@ export default function AdminPage() {
 
       {!loading && (
         <section className="mb-10">
-          <h2 className="text-sm uppercase tracking-widest text-gray-300 mb-3">
-            Επερχόμενα ραντεβού ({upcoming.length})
-          </h2>
-          <div className="space-y-2">
-            {upcoming.map((b) => (
-              <div
-                key={b.id}
-                className={`rounded-lg border px-4 py-3 flex justify-between items-center ${
-                  b.overLimit ? "border-red-500/40" : "border-gray-700"
-                }`}
-              >
-                <div>
-                  <div className="font-semibold">{b.user.fullName}</div>
-                  <div className="text-xs text-gray-400">{b.user.email}</div>
-                  <div className="text-xs text-gray-300 mt-1">
-                    {formatDT(b.startsAt)}
-                  </div>
-                </div>
-                <button onClick={() => cancelBooking(b.id)} className="text-xs rounded-md border border-gray-600 px-3 py-2">
-                  Ακύρωση
-                </button>
-              </div>
-            ))}
-            {upcoming.length === 0 && <p className="text-gray-500 text-sm">Δεν υπάρχουν ραντεβού.</p>}
-          </div>
-        </section>
-      )}
-
-      {!loading && (
-        <section className="mb-10">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm uppercase tracking-widest text-gray-300">Ημερολόγιο</h2>
             <div className="flex gap-2">
@@ -219,9 +191,18 @@ export default function AdminPage() {
                 <tr>
                   <th className="text-left text-gray-500 font-normal pb-2 pr-2 w-14"></th>
                   {weekDays.map((d) => (
-                    <th key={formatDateStr(d)} className="text-center text-gray-400 font-normal pb-2 px-1">
+                    <th
+                      key={formatDateStr(d)}
+                      onClick={() => {
+                        setSelectedDay(formatDateStr(d) === selectedDay ? null : formatDateStr(d));
+                        setSelectedCell(null);
+                      }}
+                      className={`text-center font-normal pb-2 px-1 cursor-pointer ${
+                        formatDateStr(d) === selectedDay ? "neon-text" : "text-gray-400"
+                      }`}
+                    >
                       <div>{DAY_LABELS_EL[d.getDay()]}</div>
-                      <div className="text-gray-200 font-bold">
+                      <div className={formatDateStr(d) === selectedDay ? "font-bold" : "text-gray-200 font-bold"}>
                         {d.getDate()}/{d.getMonth() + 1}
                       </div>
                     </th>
@@ -243,9 +224,15 @@ export default function AdminPage() {
                           ) : cellBookings.length === 0 ? (
                             <div className="h-8 rounded border border-gray-800" />
                           ) : (
-                            <div
-                              className={`rounded border px-1 py-1 ${
-                                cellBookings.length >= 7
+                            <button
+                              onClick={() => {
+                                setSelectedCell(key === selectedCell ? null : key);
+                                setSelectedDay(null);
+                              }}
+                              className={`w-full text-left rounded border px-1 py-1 ${
+                                key === selectedCell
+                                  ? "border-white bg-white/10"
+                                  : cellBookings.length >= 7
                                   ? "border-red-500/50 bg-red-500/10"
                                   : "neon-border bg-white/5"
                               }`}
@@ -255,7 +242,7 @@ export default function AdminPage() {
                                 {cellBookings[0].user.fullName.split(" ")[0]}
                                 {cellBookings.length > 1 ? ` +${cellBookings.length - 1}` : ""}
                               </div>
-                            </div>
+                            </button>
                           )}
                         </td>
                       );
@@ -265,6 +252,78 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+
+          {selectedDay &&
+            (() => {
+              const dayBookings = bookings
+                .filter((b) => b.status === "CONFIRMED" && formatDateStr(new Date(b.startsAt)) === selectedDay)
+                .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+              return (
+                <div className="mt-3 rounded-lg border border-gray-700 px-4 py-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs text-gray-400">{selectedDay}</span>
+                    <button onClick={() => setSelectedDay(null)} className="text-xs text-gray-500 underline">
+                      Κλείσιμο
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {dayBookings.map((b) => (
+                      <div key={b.id} className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm font-semibold">
+                            {formatDT(b.startsAt).split(", ")[1]} — {b.user.fullName}
+                          </div>
+                          <div className="text-xs text-gray-400">{b.user.email}</div>
+                        </div>
+                        <button
+                          onClick={() => cancelBooking(b.id)}
+                          className="text-xs rounded-md border border-gray-600 px-3 py-2"
+                        >
+                          Ακύρωση
+                        </button>
+                      </div>
+                    ))}
+                    {dayBookings.length === 0 && (
+                      <p className="text-gray-500 text-sm">Δεν υπάρχουν ραντεβού αυτή την ημέρα.</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+          {selectedCell &&
+            (() => {
+              const cellBookings = bookingsByDayHour.get(selectedCell) || [];
+              const [dateStr, hourStr] = selectedCell.split("_");
+              return (
+                <div className="mt-3 rounded-lg border border-gray-700 px-4 py-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs text-gray-400">
+                      {dateStr} · {String(hourStr).padStart(2, "0")}:00
+                    </span>
+                    <button onClick={() => setSelectedCell(null)} className="text-xs text-gray-500 underline">
+                      Κλείσιμο
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {cellBookings.map((b) => (
+                      <div key={b.id} className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm font-semibold">{b.user.fullName}</div>
+                          <div className="text-xs text-gray-400">{b.user.email}</div>
+                        </div>
+                        <button
+                          onClick={() => cancelBooking(b.id)}
+                          className="text-xs rounded-md border border-gray-600 px-3 py-2"
+                        >
+                          Ακύρωση
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
         </section>
       )}
 
