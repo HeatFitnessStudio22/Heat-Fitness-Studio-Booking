@@ -96,6 +96,48 @@ export default function AdminPage() {
     loadAll();
   }
 
+  async function closeWholeDay(dateStr: string) {
+    if (
+      !confirm(
+        `Κλείσιμο ολόκληρης της ημέρας ${dateStr}; Θα ακυρωθούν όλα τα υπάρχοντα ραντεβού (θα ειδοποιηθούν οι πελάτες) και δεν θα μπορεί να κλειστεί καμία νέα θέση. Δεν αναιρείται εύκολα.`
+      )
+    )
+      return;
+
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const hours = getSlotHoursForDate(dateObj);
+    const capacity = getCapacityForDateStr(dateStr);
+
+    for (const hour of hours) {
+      const key = `${dateStr}_${hour}`;
+      const existing = bookingsByDayHour.get(key) || [];
+      for (const b of existing) {
+        await fetch(`/api/bookings/${b.id}`, { method: "DELETE" });
+      }
+      const remaining = capacity - existing.length;
+      for (let i = 0; i < remaining; i++) {
+        await fetch("/api/admin/block-slot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: dateStr, hour }),
+        });
+      }
+    }
+    loadAll();
+  }
+
+  async function blockHourFull(dateStr: string, hour: number, remaining: number) {
+    for (let i = 0; i < remaining; i++) {
+      await fetch("/api/admin/block-slot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: dateStr, hour }),
+      });
+    }
+    loadAll();
+  }
+
   async function deleteCustomer(id: string, fullName: string) {
     if (!confirm(`Διαγραφή του/της ${fullName}; Αυτό θα διαγράψει και το ιστορικό ραντεβού του/της. Δεν αναιρείται.`))
       return;
@@ -331,37 +373,62 @@ export default function AdminPage() {
 
           {selectedDay &&
             (() => {
-              const dayBookings = bookings
-                .filter((b) => b.status === "CONFIRMED" && formatDateStr(new Date(b.startsAt)) === selectedDay)
-                .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+              const [y, m, d] = selectedDay.split("-").map(Number);
+              const dateObj = new Date(y, m - 1, d);
+              const hours = getSlotHoursForDate(dateObj);
+              const capacity = getCapacityForDateStr(selectedDay);
               return (
                 <div className="mt-3 rounded-lg border border-gray-700 px-4 py-3">
-                  <div className="flex justify-between items-center mb-2">
+                  <div className="flex justify-between items-center mb-3">
                     <span className="text-xs text-gray-400">{selectedDay}</span>
                     <button onClick={() => setSelectedDay(null)} className="text-xs text-gray-500 underline">
                       Κλείσιμο
                     </button>
                   </div>
-                  <div className="space-y-2">
-                    {dayBookings.map((b) => (
-                      <div key={b.id} className="flex justify-between items-center">
-                        <div>
-                          <div className="text-sm font-semibold">
-                            {formatDT(b.startsAt).split(", ")[1]} — {b.user.fullName}
+
+                  <button
+                    onClick={() => closeWholeDay(selectedDay)}
+                    className="mb-4 w-full text-xs rounded-md border border-red-500/50 text-red-400 px-3 py-2"
+                  >
+                    Κλείσιμο ολόκληρης ημέρας (π.χ. λόγω ασθένειας)
+                  </button>
+
+                  <div className="space-y-3">
+                    {hours.map((hour) => {
+                      const key = `${selectedDay}_${hour}`;
+                      const hourBookings = bookingsByDayHour.get(key) || [];
+                      const remaining = capacity - hourBookings.length;
+                      return (
+                        <div key={hour} className="border-t border-gray-800 pt-3">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-bold">{String(hour).padStart(2, "0")}:00</span>
+                            <span className="text-xs text-gray-500">{remaining} διαθέσιμες</span>
                           </div>
-                          <div className="text-xs text-gray-400">{b.user.email}</div>
+                          {hourBookings.map((b) => (
+                            <div key={b.id} className="flex justify-between items-center py-1">
+                              <div>
+                                <div className="text-sm">{b.user.fullName}</div>
+                                <div className="text-xs text-gray-500">{b.user.email}</div>
+                              </div>
+                              <button
+                                onClick={() => cancelBooking(b.id)}
+                                className="text-xs rounded-md border border-gray-600 px-3 py-2"
+                              >
+                                Ακύρωση
+                              </button>
+                            </div>
+                          ))}
+                          {remaining > 0 && (
+                            <button
+                              onClick={() => blockHourFull(selectedDay, hour, remaining)}
+                              className="mt-1 text-xs rounded-md border border-gray-600 px-3 py-2 text-gray-300"
+                            >
+                              Κλείσιμο όλων ({remaining})
+                            </button>
+                          )}
                         </div>
-                        <button
-                          onClick={() => cancelBooking(b.id)}
-                          className="text-xs rounded-md border border-gray-600 px-3 py-2"
-                        >
-                          Ακύρωση
-                        </button>
-                      </div>
-                    ))}
-                    {dayBookings.length === 0 && (
-                      <p className="text-gray-500 text-sm">Δεν υπάρχουν ραντεβού αυτή την ημέρα.</p>
-                    )}
+                      );
+                    })}
                   </div>
                 </div>
               );
