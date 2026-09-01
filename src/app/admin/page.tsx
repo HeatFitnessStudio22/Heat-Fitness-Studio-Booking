@@ -41,12 +41,17 @@ export default function AdminPage() {
 
   async function loadAll() {
     setLoading(true);
-    const [bRes, uRes] = await Promise.all([fetch("/api/bookings"), fetch("/api/admin/bookings")]);
-    const bData = await bRes.json();
-    const uData = await uRes.json();
-    setBookings(bData.bookings || []);
-    setUsers(uData.users || []);
-    setLoading(false);
+    try {
+      const [bRes, uRes] = await Promise.all([fetch("/api/bookings"), fetch("/api/admin/bookings")]);
+      const bData = await bRes.json();
+      const uData = await uRes.json();
+      setBookings(bData.bookings || []);
+      setUsers(uData.users || []);
+    } catch (e) {
+      console.error("loadAll failed", e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
