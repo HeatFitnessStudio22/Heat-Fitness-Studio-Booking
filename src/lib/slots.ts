@@ -57,3 +57,13 @@ export function formatDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// Like formatDateStr, but reads the UTC components. Use this when reading
+// back a booking.startsAt value on the client (see the note in
+// src/app/admin/page.tsx about why UTC getters must be used there).
+export function formatDateStrUTC(date: Date): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+

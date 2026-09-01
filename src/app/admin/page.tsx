@@ -2,14 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { signOut } from "next-auth/react";
-import { getSlotHoursForDate, DAY_LABELS_EL, formatDateStr, getCapacityForDateStr } from "@/lib/slots";
+import { getSlotHoursForDate, DAY_LABELS_EL, formatDateStr, formatDateStrUTC, getCapacityForDateStr } from "@/lib/slots";
 
+// booking.startsAt is stored with the intended Greek business hour written
+// directly as if it were UTC (e.g. "16:00" chosen by a customer is saved as
+// 16:00:00.000Z), because the server always runs in UTC. So on the client
+// (which runs in the browser's local timezone) we must always read these
+// fields back out using the UTC getters - never the local ones - or the
+// hour/date will silently shift by the browser's UTC offset.
 function formatDT(iso: string) {
   const d = new Date(iso);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  return `${day}/${month}/${d.getFullYear()}, ${hh}:00`;
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  return `${day}/${month}/${d.getUTCFullYear()}, ${hh}:00`;
 }
 
 type Booking = {
@@ -215,7 +221,7 @@ export default function AdminPage() {
     for (const b of bookings) {
       if (b.status !== "CONFIRMED") continue;
       const d = new Date(b.startsAt);
-      const key = `${formatDateStr(d)}_${d.getHours()}`;
+      const key = `${formatDateStrUTC(d)}_${d.getUTCHours()}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(b);
     }

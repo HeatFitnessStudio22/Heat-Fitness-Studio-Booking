@@ -291,6 +291,9 @@ export default function BookPage() {
             .filter((b) => b.status === "CONFIRMED")
             .map((b) => {
               const dt = new Date(b.startsAt);
+              // startsAt is stored with the intended hour written directly as
+              // UTC (see admin/page.tsx for the full explanation) - always
+              // read it back with the UTC getters, not local ones.
               return (
                 <div
                   key={b.id}
@@ -298,10 +301,10 @@ export default function BookPage() {
                 >
                   <div>
                     <div className="text-white font-bold">
-                      {String(dt.getDate()).padStart(2, "0")}/{String(dt.getMonth() + 1).padStart(2, "0")}{" "}
-                      {String(dt.getHours()).padStart(2, "0")}:00
+                      {String(dt.getUTCDate()).padStart(2, "0")}/{String(dt.getUTCMonth() + 1).padStart(2, "0")}{" "}
+                      {String(dt.getUTCHours()).padStart(2, "0")}:00
                     </div>
-                    <div className="text-xs text-gray-500">{dayLabels[dt.getDay()]}</div>
+                    <div className="text-xs text-gray-500">{dayLabels[dt.getUTCDay()]}</div>
                   </div>
                   <button
                     onClick={() => cancelMyBooking(b.id)}
