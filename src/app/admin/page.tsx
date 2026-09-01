@@ -38,6 +38,7 @@ export default function AdminPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [blockQty, setBlockQty] = useState(1);
 
   async function loadAll() {
     setLoading(true);
@@ -75,6 +76,23 @@ export default function AdminPage() {
       alert(data.error || "Κάτι πήγε στραβά.");
       return;
     }
+    loadAll();
+  }
+
+  async function blockMultipleSlots(date: string, hour: number, count: number) {
+    for (let i = 0; i < count; i++) {
+      const res = await fetch("/api/admin/block-slot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, hour }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Κάτι πήγε στραβά.");
+        break;
+      }
+    }
+    setBlockQty(1);
     loadAll();
   }
 
@@ -379,15 +397,39 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
-                  {cellBookings.length < getCapacityForDateStr(dateStr) && (
-                    <button
-                      onClick={() => blockSlot(dateStr, Number(hourStr))}
-                      className="mt-3 w-full text-xs rounded-md border border-gray-600 px-3 py-2 text-gray-300"
-                    >
-                      + Κλείσιμο θέσης (
-                      {getCapacityForDateStr(dateStr) - cellBookings.length} διαθέσιμες)
-                    </button>
-                  )}
+                  {cellBookings.length < getCapacityForDateStr(dateStr) &&
+                    (() => {
+                      const available = getCapacityForDateStr(dateStr) - cellBookings.length;
+                      const qty = Math.min(blockQty, available);
+                      return (
+                        <div className="mt-3 rounded-md border border-gray-600 px-3 py-2">
+                          <div className="text-xs text-gray-400 mb-2">
+                            Κλείσιμο θέσεων ({available} διαθέσιμες)
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setBlockQty((q) => Math.max(1, q - 1))}
+                              className="w-8 h-8 rounded-md border border-gray-600 text-gray-300"
+                            >
+                              −
+                            </button>
+                            <span className="text-sm font-bold w-6 text-center">{qty}</span>
+                            <button
+                              onClick={() => setBlockQty((q) => Math.min(available, q + 1))}
+                              className="w-8 h-8 rounded-md border border-gray-600 text-gray-300"
+                            >
+                              +
+                            </button>
+                            <button
+                              onClick={() => blockMultipleSlots(dateStr, Number(hourStr), qty)}
+                              className="ml-auto text-xs rounded-md btn-neon px-3 py-2"
+                            >
+                              Επιβεβαίωση
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
                 </div>
               );
             })()}
