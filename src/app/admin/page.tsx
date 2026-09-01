@@ -17,6 +17,7 @@ type Booking = {
   startsAt: string;
   status: "CONFIRMED" | "CANCELLED";
   overLimit: boolean;
+  cancelledAt: string | null;
   user: { fullName: string; email: string; monthlyLimit: number | null };
 };
 
@@ -72,6 +73,13 @@ export default function AdminPage() {
     loadAll();
   }
 
+  async function deleteCustomer(id: string, fullName: string) {
+    if (!confirm(`Διαγραφή του/της ${fullName}; Αυτό θα διαγράψει και το ιστορικό ραντεβού του/της. Δεν αναιρείται.`))
+      return;
+    await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+    loadAll();
+  }
+
   async function saveLimit(email: string) {
     const raw = limitDraft[email];
     const monthlyLimit = raw === "" || raw === undefined ? null : Number(raw);
@@ -101,6 +109,17 @@ export default function AdminPage() {
     .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
 
   const overLimitBookings = upcoming.filter((b) => b.overLimit);
+
+  const todaysCancellations = bookings.filter((b) => {
+    if (b.status !== "CANCELLED" || !b.cancelledAt) return false;
+    const c = new Date(b.cancelledAt);
+    const now = new Date();
+    return (
+      c.getFullYear() === now.getFullYear() &&
+      c.getMonth() === now.getMonth() &&
+      c.getDate() === now.getDate()
+    );
+  });
 
   // Weekly calendar: Monday..Saturday of the week offset by weekOffset weeks
   // from today (Sunday is always closed, so it's skipped).
@@ -148,6 +167,26 @@ export default function AdminPage() {
       </div>
 
       {loading && <p className="text-gray-500">Φόρτωση...</p>}
+
+      {!loading && todaysCancellations.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-sm uppercase tracking-widest text-yellow-400 mb-3">
+            🔔 Ακυρώσεις σήμερα ({todaysCancellations.length})
+          </h2>
+          <div className="space-y-2">
+            {todaysCancellations.map((b) => (
+              <div
+                key={b.id}
+                className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 px-4 py-3"
+              >
+                <div className="font-semibold">{b.user.fullName}</div>
+                <div className="text-xs text-gray-400">{b.user.email}</div>
+                <div className="text-xs text-gray-300 mt-1">Ραντεβού: {formatDT(b.startsAt)}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {!loading && overLimitBookings.length > 0 && (
         <section className="mb-10">
@@ -375,7 +414,7 @@ export default function AdminPage() {
       {!loading && (
         <section>
           <h2 className="text-sm uppercase tracking-widest text-gray-300 mb-3">
-            Μηνιαία όρια πελατών
+            Μηνιαίες προπονήσεις πελατών
           </h2>
           <div className="space-y-2">
             {users.map((u) => (
@@ -411,6 +450,12 @@ export default function AdminPage() {
                   {limitStatus[u.email] === "error" && (
                     <span className="text-xs text-red-400">Σφάλμα, δοκιμάστε ξανά.</span>
                   )}
+                  <button
+                    onClick={() => deleteCustomer(u.id, u.fullName)}
+                    className="ml-auto text-xs rounded-md border border-red-500/50 text-red-400 px-3 py-2"
+                  >
+                    Διαγραφή
+                  </button>
                 </div>
               </div>
             ))}

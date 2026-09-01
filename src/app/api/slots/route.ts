@@ -38,12 +38,24 @@ export async function GET(req: Request) {
   }
 
   let waitlistedHours = new Set<number>();
+  let myBookingHours = new Set<number>();
   if (session) {
-    const entries = await prisma.waitlistEntry.findMany({
-      where: { userId: session.user.id, startsAt: { gte: dayStart, lt: dayEnd } },
-      select: { startsAt: true },
-    });
+    const [entries, myBookings] = await Promise.all([
+      prisma.waitlistEntry.findMany({
+        where: { userId: session.user.id, startsAt: { gte: dayStart, lt: dayEnd } },
+        select: { startsAt: true },
+      }),
+      prisma.booking.findMany({
+        where: {
+          userId: session.user.id,
+          status: "CONFIRMED",
+          startsAt: { gte: dayStart, lt: dayEnd },
+        },
+        select: { startsAt: true },
+      }),
+    ]);
     waitlistedHours = new Set(entries.map((e) => e.startsAt.getHours()));
+    myBookingHours = new Set(myBookings.map((b) => b.startsAt.getHours()));
   }
 
   const capacity = getCapacityForDateStr(dateStr);
@@ -54,6 +66,7 @@ export async function GET(req: Request) {
       label: `${String(hour).padStart(2, "0")}:00`,
       remaining: Math.max(0, capacity - taken),
       waitlisted: waitlistedHours.has(hour),
+      myBooking: myBookingHours.has(hour),
     };
   });
 

@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendWaitlistOfferEmail, sendBookingCancelledEmail } from "@/lib/email";
+import { sendWaitlistOfferEmail, sendBookingCancelledEmail, sendAdminCancellationNoticeEmail } from "@/lib/email";
 
 // DELETE /api/bookings/:id - cancel a booking.
 // Admins can cancel any booking (this is the gym's "decline a client" button)
@@ -29,20 +29,12 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!isAdmin) {
-    const fourHoursBefore = new Date(booking.startsAt.getTime() - 4 * 60 * 60 * 1000);
-    if (Date.now() > fourHoursBefore.getTime()) {
-      return NextResponse.json(
-        {
-          error:
-            "Έχει περάσει το χρονικό όριο ακύρωσης (4 ώρες πριν το ραντεβού). Η ακύρωση δεν είναι πλέον δυνατή και ενδέχεται να υπάρχει χρέωση.",
-        },
-        { status: 400 }
-      );
-    }
-  }
+  const isLate = !isAdmin && Date.now() > booking.startsAt.getTime() - 4 * 60 * 60 * 1000;
 
-  await prisma.booking.update({ where: { id: params.id }, data: { status: "CANCELLED" } });
+  await prisma.booking.update({
+    where: { id: params.id },
+    data: { status: "CANCELLED", cancelledAt: new Date() },
+  });
 
   const slotLabel = `${new Intl.DateTimeFormat("el-GR", {
     day: "2-digit",
@@ -57,6 +49,13 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       slotLabel,
     });
   }
+
+  await sendAdminCancellationNoticeEmail({
+    fullName: booking.user.fullName,
+    email: booking.user.email,
+    slotLabel,
+    cancelledBy: isAdmin ? "admin" : "customer",
+  });
 
   // Offer the spot to the oldest (FIFO) waitlist entry for this exact slot,
   // but only if there's still at least 1.5 hours until it starts.
@@ -87,6 +86,12 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    late: isLate,
+    warning: isLate
+      ? "Η ακύρωση έγινε, αλλά ήταν εκτός του χρονικού ορίου (4 ώρες πριν το ραντεβού) και ενδέχεται να υπάρχει χρέωση."
+      : undefined,
+  });
 }
 

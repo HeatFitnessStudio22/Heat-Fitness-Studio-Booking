@@ -45,6 +45,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Η ώρα έχει διαθέσιμες θέσεις, κλείστε κανονικά." }, { status: 400 });
   }
 
+  const alreadyBooked = await prisma.booking.count({
+    where: { userId: session.user.id, startsAt, status: "CONFIRMED" },
+  });
+  if (alreadyBooked > 0) {
+    return NextResponse.json({ error: "Έχετε ήδη ραντεβού για αυτή την ώρα." }, { status: 400 });
+  }
+
   try {
     const entry = await prisma.waitlistEntry.create({
       data: { userId: session.user.id, startsAt },

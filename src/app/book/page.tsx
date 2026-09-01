@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { DAY_LABELS_EL, formatDateStr } from "@/lib/slots";
 import { useLang, t, DAY_LABELS_EN } from "@/lib/i18n";
 
-type Slot = { hour: number; label: string; remaining: number; waitlisted: boolean };
+type Slot = { hour: number; label: string; remaining: number; waitlisted: boolean; myBooking: boolean };
 type MyBooking = { id: string; startsAt: string; status: string };
 
 function buildDaysUntilYearEnd() {
@@ -53,6 +53,9 @@ export default function BookPage() {
     if (!res.ok) {
       setCancelMessage(data.error || t("somethingWrong", lang));
       return;
+    }
+    if (data.warning) {
+      setCancelMessage(data.warning);
     }
     loadMyBookings();
     fetch(`/api/slots?date=${dateStr}`)
@@ -175,6 +178,14 @@ export default function BookPage() {
         <div className="grid grid-cols-2 gap-4">
           {slots.map((s) => {
             const full = s.remaining <= 0;
+            if (s.myBooking) {
+              return (
+                <div key={s.hour} className="rounded-xl border neon-border px-4 py-5 text-left">
+                  <div className="text-2xl font-bold text-white">{s.label}</div>
+                  <div className="text-sm neon-text mt-1">{t("yourBooking", lang)}</div>
+                </div>
+              );
+            }
             if (full) {
               return (
                 <div

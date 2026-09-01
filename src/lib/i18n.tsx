@@ -74,6 +74,7 @@ export const T: Dict = {
   myBookings: { el: "Τα Ραντεβου Μου", en: "My Bookings" },
   noBookings: { el: "Δεν έχετε κλεισμένα ραντεβού.", en: "You have no upcoming bookings." },
   cancelBooking: { el: "Ακύρωση", en: "Cancel" },
+  yourBooking: { el: "Το ραντεβού σας ✓", en: "Your booking ✓" },
   signOut: { el: "Αποσύνδεση", en: "Sign out" },
 };
 

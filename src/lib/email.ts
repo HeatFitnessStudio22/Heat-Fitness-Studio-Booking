@@ -65,9 +65,9 @@ export async function sendWaitlistOfferEmail(params: {
       <div style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px">
         <h2 style="color:#E4FF1A">Ελευθερώθηκε θέση!</h2>
         <p>Γεια σου <strong>${params.fullName}</strong>,</p>
-        <p>Είχες δηλώσει ενδιαφέρον για μια γεμάτη προπόνηση, και μόλις ελευθερώθηκε θέση για:</p>
+        <p>Είχες δηλώσει ενδιαφέρον για προπόνηση, και μόλις ελευθερώθηκε θέση για:</p>
         <p style="font-size:20px;font-weight:bold">${params.slotLabel}</p>
-        <p>Θέλεις να την κλείσεις; Πάτησε τον παρακάτω σύνδεσμο για να απαντήσεις:</p>
+        <p>Θέλεις να την κλείσεις; Πάτησε τον παρακάτω σύνδεσμο για να την κλείσεις:</p>
         <p><a href="${params.offerUrl}" style="color:#E4FF1A">${params.offerUrl}</a></p>
         <p style="color:#999;font-size:13px">Η προσφορά ισχύει μέχρι να ξεκινήσει η προπόνηση ή μέχρι να απαντήσει κάποιος άλλος πιο γρήγορα.</p>
       </div>
@@ -123,6 +123,33 @@ export async function sendCustomerOverLimitEmail(params: {
         αλλά θέλουμε να σε ενημερώσουμε ότι έχεις ήδη ${params.bookingsThisMonth} προπονήσεις
         αυτόν τον μήνα, ενώ το όριό σου είναι ${params.monthlyLimit}.</p>
         <p style="color:#999;font-size:13px">Δεληγιώργη 119-121, Πειραιάς 18534 · +30 6988251973</p>
+      </div>
+    `,
+  });
+}
+
+// Notifies the gym admin whenever a booking gets cancelled (by the customer
+// or the admin themselves), so nothing slips by unnoticed.
+export async function sendAdminCancellationNoticeEmail(params: {
+  fullName: string;
+  email: string;
+  slotLabel: string;
+  cancelledBy: "customer" | "admin";
+}) {
+  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!resend || !to) return;
+
+  const who = params.cancelledBy === "admin" ? "από εσάς (admin)" : "από τον πελάτη";
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || "HEAT Booking <onboarding@resend.dev>",
+    to,
+    subject: `HEAT: Ακύρωση ραντεβού - ${params.fullName}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px">
+        <h2 style="color:#E4FF1A">Ακύρωση ραντεβού</h2>
+        <p>Το ραντεβού του/της <strong>${params.fullName}</strong> (${params.email}) για
+        <strong>${params.slotLabel}</strong> ακυρώθηκε ${who}.</p>
       </div>
     `,
   });
