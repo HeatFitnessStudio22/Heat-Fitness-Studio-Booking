@@ -42,6 +42,8 @@ model Booking {
   status    BookingStatus @default(CONFIRMED)
   // Was the user already over their monthly limit when this booking was made?
   overLimit Boolean       @default(false)
+  // When this booking was cancelled (by the customer or the admin), if ever.
+  cancelledAt DateTime?
   createdAt DateTime      @default(now())
 
   @@index([startsAt])
